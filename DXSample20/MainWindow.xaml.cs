@@ -2,6 +2,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -21,6 +23,7 @@ using DevExpress.Mvvm.DataAnnotations;
 using DevExpress.Xpf.Core;
 using DevExpress.Xpf.Grid;
 using DevExpress.Xpf.Grid.TreeList;
+using Path = System.IO.Path;
 
 namespace DXSample20
 {
@@ -50,6 +53,8 @@ namespace DXSample20
 
     public class FileSystem : ViewModelBase, IChildNodesSelector
     {
+        public static IList<FileSystemItemModel> SelectedFiles { get; } = new List<FileSystemItemModel>();
+
         FileSystemItemSize totalSizeCore;
         public FileSystemItemSize TotalSize
         {
@@ -92,7 +97,22 @@ namespace DXSample20
         [Command]
         public void Move()
         {
+            if (SelectedItem == null)
+            {
+                return;
+            }
+
+            var path = SelectedItem is FolderSystemItemModel folder
+                ? folder.FullName
+                : Path.GetDirectoryName(SelectedItem.FullName);
+            foreach (var file in SelectedFiles)
+            {
+                Process.Start("cmd.exe", $"/c move {file.FullName} {path}");
+            }
+
             // TODO
+            // here I'd like to trigger updates for the target path (SelectedItem itself or it'S parent)
+            // as well as for all moved files
         }
     }
 
@@ -131,7 +151,7 @@ namespace DXSample20
             }
         }
         public string FullName { get; set; }
-        public bool? Checked
+        public virtual bool? Checked
         {
             get { return checkedCore; }
             set
@@ -182,6 +202,23 @@ namespace DXSample20
         IEnumerable IChildNodesSelector.SelectChildren(object item)
         {
             return null;
+        }
+
+        public override bool? Checked
+        {
+            get => base.Checked;
+            set
+            {
+                base.Checked = value;
+                if (value == true)
+                {
+                    FileSystem.SelectedFiles.Add(this);
+                }
+                else
+                {
+                    FileSystem.SelectedFiles.Remove(this);
+                }
+            }
         }
     }
 
